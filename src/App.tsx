@@ -1,27 +1,19 @@
 import { useCallback, useState } from "react";
 import { invoke } from "@tauri-apps/api/core";
 
-type AuthResult = {
-  access_token: string;
-  refresh_token?: string | null;
-  scope: string[];
-  token_type: string;
-  expires_in?: number | null;
-};
-
 function App() {
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<AuthResult | null>(null);
+  const [accessToken, setAccessToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleAuth = useCallback(async () => {
     setLoading(true);
     setError(null);
-    setResult(null);
+    setAccessToken(null);
     try {
-      // scopes を省略すると Rust 側デフォルト(email, profile)を使用
-      const res = await invoke<AuthResult>("start_google_auth");
-      setResult(res);
+      // Rust 側はアクセストークン文字列のみ返却
+      const token = await invoke<string>("get_access_token");
+      setAccessToken(token);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -88,7 +80,7 @@ function App() {
           </div>
         )}
 
-        {result && (
+        {accessToken && (
           <div
             style={{
               marginTop: 16,
@@ -101,26 +93,8 @@ function App() {
             }}
           >
             <div>
-              <strong>token_type:</strong> {result.token_type}
+              <strong>access_token:</strong> {accessToken}
             </div>
-            <div>
-              <strong>access_token:</strong> {result.access_token}
-            </div>
-            {result.refresh_token && (
-              <div>
-                <strong>refresh_token:</strong> {result.refresh_token}
-              </div>
-            )}
-            {result.expires_in != null && (
-              <div>
-                <strong>expires_in (s):</strong> {result.expires_in}
-              </div>
-            )}
-            {result.scope?.length > 0 && (
-              <div>
-                <strong>scopes:</strong> {result.scope.join(", ")}
-              </div>
-            )}
           </div>
         )}
       </div>

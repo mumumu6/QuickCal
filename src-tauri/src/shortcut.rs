@@ -1,3 +1,4 @@
+use log::{error, info};
 use tauri::{AppHandle, Emitter, Manager};
 use tauri_plugin_global_shortcut::{Shortcut, ShortcutState};
 
@@ -15,13 +16,13 @@ pub fn setup_global_shortcut(handle: &AppHandle) -> Result<(), Box<dyn std::erro
 
                 // ショートカット処理
                 if let Err(e) = run_shortcut_process(app_handle) {
-                    eprintln!("Failed to run shortcut process: {}", e);
+                    error!("Failed to run shortcut process: {}", e);
                 }
             })
             .build(),
     )?;
 
-    println!("Shortcut registered successfully: Alt+C");
+    info!("Shortcut registered successfully: Alt+C");
     Ok(())
 }
 
@@ -45,6 +46,9 @@ fn run_shortcut_process(handle: &AppHandle) -> Result<(), Box<dyn std::error::Er
 
         Ok(())
     } else {
-        Err(Box::new(std::io::Error::new(std::io::ErrorKind::NotFound, "Window not found!")))
+        Err(Box::new(std::io::Error::new(
+            std::io::ErrorKind::NotFound,
+            "Window not found!",
+        )))
     }
 }
