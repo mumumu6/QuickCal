@@ -1,6 +1,6 @@
 mod auth;
-mod shortcut;
 mod logger;
+mod shortcut;
 use dotenvy::dotenv;
 use log::error;
 use std::env;
@@ -9,7 +9,6 @@ use std::env;
 pub fn run() {
     // .envファイルを読み込み
     dotenv().ok();
-
 
     tauri::Builder::default()
         .setup(|app| {
