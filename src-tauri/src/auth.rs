@@ -12,9 +12,10 @@ use serde_json::{from_str, to_string};
 use std::error::Error;
 use std::sync::Arc;
 use std::sync::Mutex;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::net::TcpListener;
 use tokio::sync::oneshot;
+use tokio::time::timeout;
 
 /// キーチェーンに保存する認証情報
 #[derive(Serialize, Deserialize)]
@@ -147,18 +148,23 @@ async fn start_google_auth_internal() -> Result<String, Box<dyn Error + Send + S
 
     info!("認可コードを取得しました");
 
-    // HTTPクライアントを作成（SSRFのためにリダイレクトを無効化）
+    // HTTPクライアントを作成（SSRFのためにリダイレクトを無効化、5分タイムアウト）
     let http_client = reqwest::ClientBuilder::new()
         .redirect(reqwest::redirect::Policy::none())
+        .timeout(Duration::from_secs(300))
         .build()
         .expect("HTTPクライアントの作成に失敗");
 
-    // 認可コードをアクセストークンに交換
-    let token_result = client
-        .exchange_code(AuthorizationCode::new(code))
-        .set_pkce_verifier(pkce_verifier)
-        .request_async(&http_client)
-        .await?;
+    // 認可コードをアクセストークンに交換（5分タイムアウト）
+    let token_result = timeout(
+        Duration::from_secs(300),
+        client
+            .exchange_code(AuthorizationCode::new(code))
+            .set_pkce_verifier(pkce_verifier)
+            .request_async(&http_client),
+    )
+    .await
+    .map_err(|_| "トークン取得がタイムアウトしました（5分）")??;
 
     info!("アクセストークンを取得しました");
 
@@ -206,17 +212,22 @@ async fn refresh_access_token_internal() -> Result<String, Box<dyn Error + Send 
         .set_client_secret(ClientSecret::new(google_client_secret))
         .set_token_uri(TokenUrl::new(GOOGLE_TOKEN_URL.to_string())?);
 
-    // HTTPクライアントを作成
+    // HTTPクライアントを作成（5分タイムアウト）
     let http_client = reqwest::ClientBuilder::new()
         .redirect(reqwest::redirect::Policy::none())
+        .timeout(Duration::from_secs(300))
         .build()
         .expect("HTTPクライアントの作成に失敗");
 
-    // リフレッシュトークンを使ってアクセストークンを更新
-    let token_result = client
-        .exchange_refresh_token(&refresh_token)
-        .request_async(&http_client)
-        .await?;
+    // リフレッシュトークンを使ってアクセストークンを更新（5分タイムアウト）
+    let token_result = timeout(
+        Duration::from_secs(300),
+        client
+            .exchange_refresh_token(&refresh_token)
+            .request_async(&http_client),
+    )
+    .await
+    .map_err(|_| "トークン更新がタイムアウトしました（5分）")??;
 
     let new_access_token = token_result.access_token().secret().to_string();
     let expires_in = token_result
@@ -303,8 +314,10 @@ async fn wait_for_callback(
         }
     });
 
-    // 認可コードを待つ
-    let (code, state) = rx.await?;
+    // 認可コードを待つ（5分タイムアウト）
+    let (code, state) = timeout(Duration::from_secs(300), rx)
+        .await
+        .map_err(|_| "認証コールバックがタイムアウトしました（5分）")??;
 
     // サーバーを停止
     let _ = shutdown_tx.send(());
