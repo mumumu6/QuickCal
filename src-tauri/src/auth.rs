@@ -12,7 +12,7 @@ const TIMEOUT_SECS: u64 = 300;
 
 /// 期限切れ前にリフレッシュするための余裕時間
 const TOKEN_EXPIRY_MARGIN_SECS: u64 = 300;
-use oauth::start_google_auth;
+use oauth::{cancel_auth as oauth_cancel_auth, start_google_auth};
 use refresh::refresh_access_token;
 
 /// アクセストークンを取得（自動的に保存済み認証チェック・リフレッシュ・再認証を判断）
@@ -20,6 +20,12 @@ use refresh::refresh_access_token;
 pub async fn get_access_token() -> Result<String, String> {
     debug!("get_access_token 開始");
     get_access_token_internal().await.map_err(|e| e.to_string())
+}
+
+#[tauri::command]
+pub async fn cancel_auth() -> Result<(), String> {
+    debug!("cancel_auth 開始");
+    cancel_auth_internal().await.map_err(|e| e.to_string())
 }
 
 async fn get_access_token_internal() -> Result<String, Box<dyn Error + Send + Sync>> {
@@ -63,4 +69,8 @@ async fn check_saved_auth() -> Result<Option<String>, Box<dyn Error + Send + Syn
             Ok(None)
         }
     }
+}
+
+async fn cancel_auth_internal() -> Result<(), Box<dyn Error + Send + Sync>> {
+    oauth_cancel_auth()
 }

@@ -21,6 +21,15 @@ function App() {
     }
   }, []);
 
+  const handleCancel = useCallback(async () => {
+    try {
+      await invoke("cancel_auth");
+    } catch (e) {
+      // キャンセル失敗時は特に何もしない（認証プロセスが実行されていない場合など）
+      console.warn("Cancel auth failed:", e);
+    }
+  }, []);
+
   return (
     <main
       style={{
@@ -47,22 +56,41 @@ function App() {
         <p style={{ marginTop: 0, marginBottom: 20, lineHeight: 1.5 }}>
           ブラウザで Google 同意画面を開いて、コードをローカルで受け取ります。
         </p>
-        <button
-          onClick={handleAuth}
-          disabled={loading}
-          style={{
-            padding: "12px 16px",
-            fontSize: 16,
-            background: "#1a73e8",
-            color: "#fff",
-            border: "none",
-            borderRadius: 8,
-            cursor: loading ? "not-allowed" : "pointer",
-            width: "100%",
-          }}
-        >
-          {loading ? "認証中..." : "Googleで認証"}
-        </button>
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={handleAuth}
+            disabled={loading}
+            style={{
+              padding: "12px 16px",
+              fontSize: 16,
+              background: "#1a73e8",
+              color: "#fff",
+              border: "none",
+              borderRadius: 8,
+              cursor: loading ? "not-allowed" : "pointer",
+              flex: 1,
+            }}
+          >
+            {loading ? "認証中..." : "Googleで認証"}
+          </button>
+          {loading && (
+            <button
+              onClick={handleCancel}
+              style={{
+                padding: "12px 16px",
+                fontSize: 16,
+                background: "#dc3545",
+                color: "#fff",
+                border: "none",
+                borderRadius: 8,
+                cursor: "pointer",
+                minWidth: 80,
+              }}
+            >
+              やめる
+            </button>
+          )}
+        </div>
 
         {error && (
           <div

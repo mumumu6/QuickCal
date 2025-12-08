@@ -3283,6 +3283,7 @@ dependencies = [
  "log",
  "oauth2",
  "open",
+ "scopeguard",
  "serde",
  "serde_json",
  "tauri",
@@ -3291,6 +3292,7 @@ dependencies = [
  "tauri-plugin-global-shortcut",
  "tauri-plugin-opener",
  "tokio",
+ "tokio-util",
  "url",
 ]
 

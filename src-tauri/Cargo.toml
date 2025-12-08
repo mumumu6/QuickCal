@@ -28,6 +28,8 @@ oauth2 = { version = "5", features = ["reqwest"] }
 url = "2.5.7"
 open = "5"
 tokio = { version = "1", features = ["rt", "sync"] }
+tokio-util = "0.7"
+scopeguard = "1.2"
 axum = "0.8"
 keyring = { version = "3.6.3", features = ["windows-native", "apple-native", "linux-native"] }
 log = "0.4"

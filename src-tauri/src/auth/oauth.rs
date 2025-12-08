@@ -1,7 +1,7 @@
 //! OAuth認証フロー（Google OAuth、コールバック処理）
 
 use axum::{extract::Query, response::Html, routing::get, Router};
-use log::{debug, error, info};
+use log::{debug, error, info, warn};
 use oauth2::basic::BasicClient;
 use oauth2::reqwest;
 use oauth2::{
@@ -11,13 +11,36 @@ use oauth2::{
 use std::error::Error;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::OnceLock;
 use std::time::Duration;
 use tokio::net::TcpListener;
 use tokio::sync::oneshot;
 use tokio::time::timeout;
+use tokio_util::sync::CancellationToken;
 
 use super::keyring::{current_timestamp, save_auth_to_keychain, StoredAuth};
 use super::TIMEOUT_SECS;
+
+/// グローバルキャンセルトークン
+static CANCEL_TOKEN: OnceLock<Mutex<Option<CancellationToken>>> = OnceLock::new();
+
+fn get_cancel_token_store() -> &'static Mutex<Option<CancellationToken>> {
+    CANCEL_TOKEN.get_or_init(|| Mutex::new(None))
+}
+
+/// 認証をキャンセル
+pub fn cancel_auth() -> Result<(), Box<dyn Error + Send + Sync>> {
+    let store = get_cancel_token_store();
+    let guard = store.lock().unwrap();
+    if let Some(token) = guard.as_ref() {
+        info!("認証キャンセルをリクエストしました");
+        token.cancel();
+        Ok(())
+    } else {
+        warn!("キャンセル可能な認証プロセスがありません");
+        Err("認証プロセスが実行されていません".into())
+    }
+}
 
 /// コールバックのクエリパラメータ
 #[derive(serde::Deserialize)]
@@ -32,6 +55,21 @@ const GOOGLE_SCOPE: &str = "https://www.googleapis.com/auth/calendar.calendarlis
 
 /// Google OAuth認証を開始し、アクセストークンを取得
 pub async fn start_google_auth() -> Result<String, Box<dyn Error + Send + Sync>> {
+    // キャンセルトークンを作成
+    let cancel_token = CancellationToken::new();
+    {
+        let store = get_cancel_token_store();
+        let mut guard = store.lock().unwrap();
+        *guard = Some(cancel_token.clone());
+    }
+
+    // 認証完了時にキャンセルトークンをクリア（成功・失敗・キャンセルいずれの場合も）
+    let _cleanup = scopeguard::guard((), |_| {
+        let store = get_cancel_token_store();
+        let mut guard = store.lock().unwrap();
+        *guard = None;
+    });
+
     // 環境変数から認証情報を取得
     let google_client_id = std::env::var("GOOGLE_CLIENT_ID")
         .map_err(|_| "GOOGLE_CLIENT_ID environment variable is not set")?;
@@ -67,7 +105,7 @@ pub async fn start_google_auth() -> Result<String, Box<dyn Error + Send + Sync>>
     open::that(auth_url.to_string())?;
 
     // コールバックを待機して認可コードを取得
-    let (code, state) = wait_for_callback(listener).await?;
+    let (code, state) = wait_for_callback(listener, cancel_token).await?;
 
     // CSRF検証
     if state != *csrf_token.secret() {
@@ -126,6 +164,7 @@ pub async fn start_google_auth() -> Result<String, Box<dyn Error + Send + Sync>>
 /// axumでコールバックを待機し、認可コードとstateを取得する
 async fn wait_for_callback(
     listener: TcpListener,
+    cancel_token: CancellationToken,
 ) -> Result<(String, String), Box<dyn Error + Send + Sync>> {
     // oneshot channelで認可コードを受け取る
     let (tx, rx) = oneshot::channel::<(String, String)>();
@@ -159,10 +198,20 @@ async fn wait_for_callback(
         }
     });
 
-    // 認可コードを待つ
-    let (code, state) = timeout(Duration::from_secs(TIMEOUT_SECS), rx)
-        .await
-        .map_err(|_| "認証コールバックがタイムアウトしました")??;
+    // 認可コードを待つ（タイムアウト or キャンセル）
+    let result = tokio::select! {
+        result = timeout(Duration::from_secs(TIMEOUT_SECS), rx) => {
+            match result {
+                Ok(Ok((code, state))) => Ok((code, state)),
+                Ok(Err(_)) => Err("認可コードの受信に失敗しました".into()),
+                Err(_) => Err("認証コールバックがタイムアウトしました".into()),
+            }
+        }
+        _ = cancel_token.cancelled() => {
+            info!("認証がユーザーによりキャンセルされました");
+            Err("認証がキャンセルされました".into())
+        }
+    };
 
     // サーバーを停止
     let _ = shutdown_tx.send(());
@@ -170,5 +219,5 @@ async fn wait_for_callback(
     // 少し待ってサーバーが完全に停止するのを待つ
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
-    Ok((code, state))
+    result
 }
