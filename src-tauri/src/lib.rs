@@ -11,6 +11,8 @@ pub fn run() {
     dotenv().ok();
 
     tauri::Builder::default()
+        // クリップボードプラグイン
+        .plugin(tauri_plugin_clipboard_manager::init())
         .setup(|app| {
             // ログの初期化
             logger::setup_logger();
