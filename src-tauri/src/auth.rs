@@ -28,9 +28,16 @@ pub async fn cancel_auth() -> Result<(), String> {
     cancel_auth_internal().await.map_err(|e| e.to_string())
 }
 
+/// 保存済みアクセストークンが有効かを確認するだけのコマンド（UIから静かに呼ぶ用）
+#[tauri::command]
+pub async fn check_saved_auth() -> Result<Option<String>, String> {
+    check_saved_auth_internal().await.map_err(|e| e.to_string())
+}
+
+
 async fn get_access_token_internal() -> Result<String, Box<dyn Error + Send + Sync>> {
     // 保存された認証情報をチェック
-    match check_saved_auth().await? {
+    match check_saved_auth_internal().await? {
         Some(token) => {
             // 保存されたトークンを使用
             Ok(token)
@@ -43,7 +50,8 @@ async fn get_access_token_internal() -> Result<String, Box<dyn Error + Send + Sy
 }
 
 /// access_tokenが有効期限内かチェックし、有効期限内の場合はaccess_tokenを返す
-async fn check_saved_auth() -> Result<Option<String>, Box<dyn Error + Send + Sync>> {
+/// リフレッシュもここで行い、失敗時は削除してNoneを返す
+async fn check_saved_auth_internal() -> Result<Option<String>, Box<dyn Error + Send + Sync>> {
     // キーチェーンから認証情報を読み込み
     let stored_auth = match load_auth_from_keychain()? {
         Some(auth) => auth,

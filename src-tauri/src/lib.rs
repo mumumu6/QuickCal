@@ -25,6 +25,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             auth::get_access_token,
             auth::cancel_auth,
+            auth::check_saved_auth
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
