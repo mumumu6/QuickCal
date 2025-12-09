@@ -51,7 +51,8 @@ struct CallbackParams {
 
 const GOOGLE_AUTH_URL: &str = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
-const GOOGLE_SCOPE: &str = "https://www.googleapis.com/auth/calendar.calendarlist";
+const GOOGLE_SCOPE: &str = "https://www.googleapis.com/auth/calendar.events";
+
 
 /// Google OAuth認証を開始し、アクセストークンを取得
 pub async fn start_google_auth() -> Result<String, Box<dyn Error + Send + Sync>> {

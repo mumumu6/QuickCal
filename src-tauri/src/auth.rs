@@ -34,7 +34,6 @@ pub async fn check_saved_auth() -> Result<Option<String>, String> {
     check_saved_auth_internal().await.map_err(|e| e.to_string())
 }
 
-
 async fn get_access_token_internal() -> Result<String, Box<dyn Error + Send + Sync>> {
     // 保存された認証情報をチェック
     match check_saved_auth_internal().await? {
