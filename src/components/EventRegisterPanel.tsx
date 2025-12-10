@@ -1,117 +1,121 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import React from "react";
 import { listen } from "@tauri-apps/api/event";
-import { readText } from "@tauri-apps/plugin-clipboard-manager";
+import dayjs, { type Dayjs } from "dayjs";
+import {
+  addDays,
+  addHours,
+  formatDateOnly,
+  formatDateTimeLocal,
+  parseDateOnlyValue,
+  parseDateTimeValue,
+  type ParsedClipboard,
+} from "@/utils/dateParse";
+import { readClipboardSchedule } from "@/utils/clipboard";
+import {
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Checkbox,
+  CircularProgress,
+  FormControlLabel,
+  Grid,
+  Paper,
+  Stack,
+  TextField,
+  Typography,
+} from "@mui/material";
+import { AdapterDayjs } from "@mui/x-date-pickers/AdapterDayjs";
+import { DatePicker } from "@mui/x-date-pickers/DatePicker";
+import { LocalizationProvider } from "@mui/x-date-pickers/LocalizationProvider";
+import { TimePicker } from "@mui/x-date-pickers/TimePicker";
+import EventAvailableRoundedIcon from "@mui/icons-material/EventAvailableRounded";
+import { useAuthStore } from "@/store/authStore";
 
-const HOUR_MS = 60 * 60 * 1000;
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-const pad = (num: number) => String(num).padStart(2, "0");
-
-const formatDateTimeLocal = (date: Date) => {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(
-    date.getHours()
-  )}:${pad(date.getMinutes())}`;
-};
-
-const formatDateOnly = (date: Date) => {
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
-};
-
-const parseDateOnlyValue = (value: string) => {
-  const m = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (!m) return null;
-  const [, y, mo, d] = m;
-  const date = new Date(Number(y), Number(mo) - 1, Number(d));
-  return isNaN(date.getTime()) ? null : date;
-};
-
-const parseDateTimeValue = (value: string) => {
-  if (!value) return null;
-  const date = new Date(value);
-  return isNaN(date.getTime()) ? null : date;
-};
-
-const addHours = (date: Date, hours: number) => new Date(date.getTime() + hours * HOUR_MS);
-const addDays = (date: Date, days: number) => new Date(date.getTime() + days * DAY_MS);
-
-type ParsedClipboard = {
-  start: string;
-  end?: string;
-  allDay: boolean;
-  title?: string;
-};
-
-const parseClipboardContent = (raw: string): ParsedClipboard | null => {
-  const text = raw.trim();
-  if (!text) return null;
-
-  const fullDate = text.match(/(\d{4})[\/\-](\d{1,2})[\/\-](\d{1,2})/);
-  const jpDate = text.match(/(\d{1,2})\s*月\s*(\d{1,2})\s*日?/);
-  const shortDate = text.match(/(\d{1,2})[\/\-](\d{1,2})/);
-
-  let baseDate: Date | null = null;
-  if (fullDate) {
-    const [, y, m, d] = fullDate;
-    baseDate = new Date(Number(y), Number(m) - 1, Number(d));
-  } else if (jpDate) {
-    const [, m, d] = jpDate;
-    const now = new Date();
-    baseDate = new Date(now.getFullYear(), Number(m) - 1, Number(d));
-  } else if (shortDate) {
-    const [, m, d] = shortDate;
-    const now = new Date();
-    baseDate = new Date(now.getFullYear(), Number(m) - 1, Number(d));
+const resolveEndFromParsed = (parsed: ParsedClipboard) => {
+  if (parsed.allDay) {
+    const startDate = parseDateOnlyValue(parsed.start);
+    const resolvedEnd = parsed.end ?? (startDate ? formatDateOnly(addDays(startDate, 1)) : "");
+    return { endText: resolvedEnd, endDirty: Boolean(parsed.end) };
   }
 
-  if (!baseDate || isNaN(baseDate.getTime())) return null;
+  const startDate = parseDateTimeValue(parsed.start);
+  const resolvedEnd = parsed.end ?? (startDate ? formatDateTimeLocal(addHours(startDate, 1)) : "");
+  return { endText: resolvedEnd, endDirty: Boolean(parsed.end) };
+};
 
-  const timeMatches = [...text.matchAll(/(\d{1,2}):(\d{2})/g)].map((m) => [
-    Number(m[1]),
-    Number(m[2]),
-  ]);
-  const headline = text.split(/\r?\n/)[0]?.trim() || undefined;
+const buildEventBody = ({
+  title,
+  allDay,
+  startText,
+  endText,
+}: {
+  title: string;
+  allDay: boolean;
+  startText: string;
+  endText: string;
+}) => {
+  if (!title.trim()) {
+    throw new Error("タイトルを入力してください");
+  }
+  if (!startText) {
+    throw new Error("開始日時を入力してください");
+  }
 
-  if (timeMatches.length >= 2) {
-    const [h1, min1] = timeMatches[0];
-    const [h2, min2] = timeMatches[1];
-    const start = new Date(baseDate);
-    start.setHours(h1, min1, 0, 0);
-    const end = new Date(baseDate);
-    end.setHours(h2, min2, 0, 0);
-    if (end <= start) {
-      end.setTime(start.getTime() + HOUR_MS);
+  if (allDay) {
+    const start = parseDateOnlyValue(startText);
+    if (!start) {
+      throw new Error("開始日の形式が不正です（例: 2024-12-01）");
+    }
+    let endDate = endText ? parseDateOnlyValue(endText) : addDays(start, 1);
+    if (!endDate) {
+      endDate = addDays(start, 1);
     }
     return {
-      allDay: false,
-      start: formatDateTimeLocal(start),
-      end: formatDateTimeLocal(end),
-      title: headline,
+      summary: title,
+      start: {
+        date: formatDateOnly(start),
+      },
+      end: {
+        date: formatDateOnly(endDate),
+      },
     };
   }
 
-  if (timeMatches.length === 1) {
-    const [h1, min1] = timeMatches[0];
-    const start = new Date(baseDate);
-    start.setHours(h1, min1, 0, 0);
-    return {
-      allDay: false,
-      start: formatDateTimeLocal(start),
-      title: headline,
-    };
+  const start = parseDateTimeValue(startText);
+  if (!start) {
+    throw new Error("開始日時の形式が不正です（例: 2024-12-01T10:00）");
+  }
+
+  let end = endText ? parseDateTimeValue(endText) : addHours(start, 1);
+  if (!end) {
+    end = addHours(start, 1);
   }
 
   return {
-    allDay: true,
-    start: formatDateOnly(baseDate),
-    title: headline,
+    summary: title,
+    start: {
+      dateTime: start.toISOString(),
+      timeZone: "Asia/Tokyo",
+    },
+    end: {
+      dateTime: end.toISOString(),
+      timeZone: "Asia/Tokyo",
+    },
   };
 };
 
-type EventRegisterPanelProps = {
-  accessToken: string;
+const combineDateAndTime = (date: Dayjs | null, time: Dayjs | null) => {
+  if (!date) return null;
+  const base = dayjs(date);
+  if (!time) return base.toDate();
+  return base.hour(time.hour()).minute(time.minute()).second(0).millisecond(0).toDate();
 };
 
-export default function EventRegisterPanel({ accessToken }: EventRegisterPanelProps) {
+export default function EventRegisterPanel() {
+  const accessToken = useAuthStore((state) => state.accessToken);
   const initialStart = new Date();
   const [title, setTitle] = useState("カレンダー登録");
   const [allDay, setAllDay] = useState(false);
@@ -121,27 +125,107 @@ export default function EventRegisterPanel({ accessToken }: EventRegisterPanelPr
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [clipboardRaw, setClipboardRaw] = useState<string | null>(null);
+  const [clipboardParsed, setClipboardParsed] = useState<ParsedClipboard | null>(null);
 
-  const startPreview = useMemo(() => {
-    if (!startText) return "未入力";
-    return allDay ? `${startText} (終日)` : startText;
+  const highlightedClipboard = useMemo(() => {
+    if (!clipboardRaw) return null;
+    const spans = clipboardParsed?.highlights ?? [];
+    if (!spans.length) return clipboardRaw;
+    const sorted = [...spans].sort((a, b) => a.start - b.start);
+    const nodes: Array<string | React.ReactElement | string> = [];
+    let cursor = 0;
+    sorted.forEach((h, idx) => {
+      const start = Math.max(0, Math.min(h.start, clipboardRaw.length));
+      const end = Math.max(start, Math.min(h.end, clipboardRaw.length));
+      if (cursor < start) {
+        nodes.push(clipboardRaw.slice(cursor, start));
+      }
+      if (start < end) {
+        nodes.push(
+          <Box
+            key={`hl-${idx}`}
+            component="span"
+            sx={{ color: "error.main", fontWeight: 700, display: "inline" }}
+          >
+            {clipboardRaw.slice(start, end)}
+          </Box>
+        );
+      }
+      cursor = end;
+    });
+    if (cursor < clipboardRaw.length) {
+      nodes.push(clipboardRaw.slice(cursor));
+    }
+    return nodes;
+  }, [clipboardParsed?.highlights, clipboardRaw]);
+
+  const pickerSlotProps = useMemo(
+    () => ({
+      popper: {
+        placement: "bottom" as const,
+        modifiers: [
+          { name: "flip", enabled: false },
+          { name: "preventOverflow", enabled: false },
+          { name: "hide", enabled: false },
+        ],
+        sx: {
+          "&.MuiPickersPopper-root": {
+            position: "fixed !important",
+            left: "50% !important",
+            top: "50% !important",
+            transform: "translate(-50%, -50%) !important",
+            zIndex: 1300,
+          },
+        },
+      },
+      textField: {
+        size: "small" as const,
+        fullWidth: true as const,
+        sx: {
+          "& .MuiInputBase-root": { height: 40 },
+          "& .MuiInputBase-input": { py: 0.5, fontSize: 14 },
+        },
+      },
+    }),
+    []
+  );
+
+  const parsedStart = useMemo(
+    () => (allDay ? parseDateOnlyValue(startText) : parseDateTimeValue(startText)),
+    [allDay, startText]
+  );
+
+  const startPickerValue = useMemo(() => {
+    const parsed = allDay ? parseDateOnlyValue(startText) : parseDateTimeValue(startText);
+    return parsed ? dayjs(parsed) : null;
   }, [allDay, startText]);
 
-  const endPreview = useMemo(() => {
-    if (endText) return endText;
-    const base = allDay ? parseDateOnlyValue(startText) : parseDateTimeValue(startText);
-    if (!base) return allDay ? "未入力（自動で翌日）" : "未入力（自動で+1時間）";
-    const end = allDay ? addDays(base, 1) : addHours(base, 1);
-    return allDay ? formatDateOnly(end) : formatDateTimeLocal(end);
-  }, [allDay, endText, startText]);
+  const startTimeValue = useMemo(() => {
+    if (allDay) return null;
+    const parsed = parseDateTimeValue(startText);
+    return parsed ? dayjs(parsed) : null;
+  }, [allDay, startText]);
+
+  const endPickerValue = useMemo(() => {
+    const parsed = allDay ? parseDateOnlyValue(endText) : parseDateTimeValue(endText);
+    return parsed ? dayjs(parsed) : null;
+  }, [allDay, endText]);
+
+  const endTimeValue = useMemo(() => {
+    if (allDay) return null;
+    const parsed = parseDateTimeValue(endText);
+    return parsed ? dayjs(parsed) : null;
+  }, [allDay, endText]);
 
   useEffect(() => {
     if (endDirty) return;
-    const base = allDay ? parseDateOnlyValue(startText) : parseDateTimeValue(startText);
-    if (!base) return;
-    const next = allDay ? formatDateOnly(addDays(base, 1)) : formatDateTimeLocal(addHours(base, 1));
+    if (!parsedStart) return;
+    const next = allDay
+      ? formatDateOnly(addDays(parsedStart, 1))
+      : formatDateTimeLocal(addHours(parsedStart, 1));
     setEndText(next);
-  }, [allDay, endDirty, startText]);
+  }, [allDay, endDirty, parsedStart]);
 
   const handleToggleAllDay = useCallback(() => {
     setAllDay((prev) => {
@@ -169,47 +253,101 @@ export default function EventRegisterPanel({ accessToken }: EventRegisterPanelPr
     });
   }, [startText]);
 
-  const handleClipboardImport = useCallback(async () => {
-    setMessage(null);
-    try {
-      const clipboardText = await readText();
-      if (!clipboardText) {
-        setError("クリップボードにテキストがありませんでした。");
+  const handleStartDateChange = useCallback(
+    (value: Dayjs | null) => {
+      if (!value) {
+        setStartText("");
         return;
       }
-
-      const parsed = parseClipboardContent(clipboardText);
-      if (!parsed) {
-        setError("クリップボードから日時を読み取れませんでした。");
+      if (allDay) {
+        setStartText(formatDateOnly(value.toDate()));
         return;
       }
+      const combined = combineDateAndTime(value, startTimeValue ?? value);
+      setStartText(combined ? formatDateTimeLocal(combined) : "");
+    },
+    [allDay, startTimeValue]
+  );
 
+  const handleStartTimeChange = useCallback(
+    (value: Dayjs | null) => {
+      if (allDay) return;
+      if (!value) {
+        setStartText("");
+        return;
+      }
+      const combined = combineDateAndTime(startPickerValue, value);
+      setStartText(combined ? formatDateTimeLocal(combined) : "");
+    },
+    [allDay, startPickerValue]
+  );
+
+  const handleEndDateChange = useCallback(
+    (value: Dayjs | null) => {
+      setEndDirty(true);
+      if (!value) {
+        setEndText("");
+        return;
+      }
+      if (allDay) {
+        setEndText(formatDateOnly(value.toDate()));
+        return;
+      }
+      const combined = combineDateAndTime(value, endTimeValue ?? value);
+      setEndText(combined ? formatDateTimeLocal(combined) : "");
+    },
+    [allDay, endTimeValue]
+  );
+
+  const handleEndTimeChange = useCallback(
+    (value: Dayjs | null) => {
+      if (allDay) return;
+      setEndDirty(true);
+      if (!value) {
+        setEndText("");
+        return;
+      }
+      const combined = combineDateAndTime(endPickerValue, value);
+      setEndText(combined ? formatDateTimeLocal(combined) : "");
+    },
+    [allDay, endPickerValue]
+  );
+
+  const applyParsedClipboard = useCallback(
+    (parsed: ParsedClipboard) => {
       setAllDay(parsed.allDay);
       setStartText(parsed.start);
 
-      if (parsed.allDay) {
-        const startDate = parseDateOnlyValue(parsed.start);
-        const resolvedEnd = parsed.end ?? (startDate ? formatDateOnly(addDays(startDate, 1)) : "");
-        setEndText(resolvedEnd);
-        setEndDirty(Boolean(parsed.end));
-      } else {
-        const startDate = parseDateTimeValue(parsed.start);
-        const resolvedEnd =
-          parsed.end ?? (startDate ? formatDateTimeLocal(addHours(startDate, 1)) : "");
-        setEndText(resolvedEnd);
-        setEndDirty(Boolean(parsed.end));
-      }
+      const { endText: nextEnd, endDirty: nextDirty } = resolveEndFromParsed(parsed);
+      setEndText(nextEnd);
+      setEndDirty(nextDirty);
 
       if (parsed.title && title === "カレンダー登録") {
         setTitle(parsed.title);
       }
+    },
+    [title]
+  );
 
-      setError(null);
-      setMessage("クリップボードの内容を反映しました。");
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+  const handleClipboardImport = useCallback(async () => {
+    setMessage(null);
+    const { parsed, error: readError, raw } = await readClipboardSchedule();
+    setClipboardRaw(raw ?? null);
+    setClipboardParsed(parsed ?? null);
+
+    if (readError) {
+      setError(readError);
+      return;
     }
-  }, [title]);
+    if (!parsed) {
+      setError("クリップボードから日時を読み取れませんでした。");
+      return;
+    }
+
+    applyParsedClipboard(parsed);
+    setError(null);
+    setMessage("クリップボードの内容を反映しました。");
+  }, [applyParsedClipboard]);
 
   useEffect(() => {
     const unlistenPromise = listen("shortcut-triggered", () => {
@@ -226,57 +364,14 @@ export default function EventRegisterPanel({ accessToken }: EventRegisterPanelPr
     setError(null);
     setMessage(null);
 
+    if (!accessToken) {
+      setError("アクセストークンがありません。再度認証してください。");
+      setLoading(false);
+      return;
+    }
+
     try {
-      if (!title.trim()) {
-        throw new Error("タイトルを入力してください");
-      }
-      if (!startText) {
-        throw new Error("開始日時を入力してください");
-      }
-
-      let body: Record<string, unknown>;
-
-      if (allDay) {
-        const start = parseDateOnlyValue(startText);
-        if (!start) {
-          throw new Error("開始日の形式が不正です（例: 2024-12-01）");
-        }
-        let endDate = endText ? parseDateOnlyValue(endText) : addDays(start, 1);
-        if (!endDate) {
-          endDate = addDays(start, 1);
-        }
-        body = {
-          summary: title,
-          start: {
-            date: formatDateOnly(start),
-          },
-          end: {
-            date: formatDateOnly(endDate),
-          },
-        };
-      } else {
-        const start = parseDateTimeValue(startText);
-        if (!start) {
-          throw new Error("開始日時の形式が不正です（例: 2024-12-01T10:00）");
-        }
-
-        let end = endText ? parseDateTimeValue(endText) : addHours(start, 1);
-        if (!end) {
-          end = addHours(start, 1);
-        }
-
-        body = {
-          summary: title,
-          start: {
-            dateTime: start.toISOString(),
-            timeZone: "Asia/Tokyo",
-          },
-          end: {
-            dateTime: end.toISOString(),
-            timeZone: "Asia/Tokyo",
-          },
-        };
-      }
+      const body = buildEventBody({ title, allDay, startText, endText });
 
       const res = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
         method: "POST",
@@ -298,148 +393,176 @@ export default function EventRegisterPanel({ accessToken }: EventRegisterPanelPr
     } finally {
       setLoading(false);
     }
-  }, [accessToken, endText, startText, title]);
+  }, [accessToken, allDay, endText, startText, title]);
 
   return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        gap: 12,
-        background: "#f1f3f4",
-        padding: 16,
-        borderRadius: 12,
-      }}
-    >
-      <h2 style={{ margin: 0, fontSize: 18 }}>カレンダー登録</h2>
-
-      <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 14 }}>
-        タイトル
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          style={{
-            padding: "10px 12px",
-            borderRadius: 8,
-            border: "1px solid #ccc",
-            fontSize: 14,
-          }}
-          placeholder="予定タイトル"
-        />
-      </label>
-
-      <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 14 }}>
-        <div
-          style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-            justifyContent: "space-between",
-          }}
-        >
-          <span>開始 {allDay ? "(日付のみ)" : "(例: 2024-12-01T10:00)"}</span>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }}>
-            <input type="checkbox" checked={allDay} onChange={handleToggleAllDay} />
-            終日
-          </label>
-        </div>
-        <input
-          type={allDay ? "date" : "datetime-local"}
-          value={startText}
-          onChange={(e) => setStartText(e.target.value)}
-          style={{
-            padding: "10px 12px",
-            borderRadius: 8,
-            border: "1px solid #ccc",
-            fontSize: 14,
-          }}
-        />
-      </label>
-
-      <label style={{ display: "flex", flexDirection: "column", gap: 6, fontSize: 14 }}>
-        終了 ({allDay ? "未入力なら翌日扱い" : "空なら開始+1時間"})
-        <input
-          type={allDay ? "date" : "datetime-local"}
-          value={endText}
-          onChange={(e) => {
-            setEndDirty(true);
-            setEndText(e.target.value);
-          }}
-          style={{
-            padding: "10px 12px",
-            borderRadius: 8,
-            border: "1px solid #ccc",
-            fontSize: 14,
-          }}
-        />
-      </label>
-
-      <div
-        style={{
-          background: "#fff",
-          border: "1px solid #e0e0e0",
-          borderRadius: 8,
-          padding: 12,
-          fontSize: 14,
-          lineHeight: 1.6,
+    <LocalizationProvider dateAdapter={AdapterDayjs}>
+      <Paper
+        elevation={0}
+        sx={{
+          p: { xs: 2, sm: 3 },
+          borderRadius: 3,
+          background: "linear-gradient(135deg, #f6f8ff 0%, #eef2ff 100%)",
+          border: "1px solid",
+          borderColor: "grey.200",
+          boxShadow: "0 12px 30px rgba(0,0,0,0.08)",
         }}
       >
-        <div>この内容で登録しますか？</div>
-        <div style={{ marginTop: 6 }}>
-          <strong>タイトル:</strong> {title || "(未入力)"}
-        </div>
-        <div>
-          <strong>開始:</strong> {startPreview}
-        </div>
-        <div>
-          <strong>終了:</strong> {endPreview}
-        </div>
-      </div>
+        <Stack spacing={2.5}>
+          <Stack
+            direction={{ xs: "column", sm: "row" }}
+            alignItems={{ xs: "flex-start", sm: "center" }}
+            justifyContent="space-between"
+            spacing={1.5}
+          >
+            <Box>
+              <Typography variant="h6" component="h2" sx={{ fontWeight: 700 }}>
+                カレンダー登録
+              </Typography>
+            </Box>
+            <Button
+              variant="contained"
+              onClick={registerEvent}
+              disabled={loading}
+              startIcon={
+                loading ? (
+                  <CircularProgress size={16} color="inherit" />
+                ) : (
+                  <EventAvailableRoundedIcon />
+                )
+              }
+              sx={{
+                minWidth: 180,
+                borderRadius: 2,
+                boxShadow: "0 10px 25px rgba(26,115,232,0.25)",
+              }}
+            >
+              {loading ? "登録中..." : "この内容で登録する"}
+            </Button>
+          </Stack>
 
-      <button
-        onClick={registerEvent}
-        disabled={loading}
-        style={{
-          padding: "12px 16px",
-          fontSize: 15,
-          background: "#1a73e8",
-          color: "#fff",
-          border: "none",
-          borderRadius: 10,
-          cursor: loading ? "not-allowed" : "pointer",
-        }}
-      >
-        {loading ? "登録中..." : "この内容で登録する"}
-      </button>
+          {clipboardRaw && (
+            <Card
+              variant="outlined"
+              sx={{
+                borderColor: clipboardParsed ? "primary.light" : "error.light",
+                bgcolor: "#fff",
+              }}
+            >
+              <CardContent sx={{ display: "flex", flexDirection: "column", gap: 1 }}>
+                <Stack direction="row" alignItems="center" justifyContent="space-between">
+                  <Typography variant="subtitle2" fontWeight={700}>
+                    貼り付けプレビュー
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    color={clipboardParsed ? "primary.main" : "error.main"}
+                  >
+                    {clipboardParsed ? "日時を検出しました" : "日時を検出できませんでした"}
+                  </Typography>
+                </Stack>
+                <Box
+                  sx={{
+                    fontSize: 13,
+                    lineHeight: 1.4,
+                    whiteSpace: "pre-wrap",
+                    wordBreak: "break-word",
+                    maxHeight: "2.5lh",
+                    overflowY: "auto",
+                  }}
+                >
+                  {highlightedClipboard ?? clipboardRaw}
+                </Box>
+              </CardContent>
+            </Card>
+          )}
 
-      {message && (
-        <div
-          style={{
-            padding: 10,
-            borderRadius: 8,
-            background: "#e6f4ea",
-            color: "#1e7e34",
-            fontSize: 13,
-          }}
-        >
-          {message}
-        </div>
-      )}
+          <Grid container spacing={2}>
+            <Grid size={12}>
+              <TextField
+                label="タイトル"
+                placeholder="予定タイトル"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                fullWidth
+                size="small"
+              />
+            </Grid>
 
-      {error && (
-        <div
-          style={{
-            padding: 10,
-            borderRadius: 8,
-            background: "#fdecea",
-            color: "#b71c1c",
-            fontSize: 13,
-            whiteSpace: "pre-wrap",
-          }}
-        >
-          {error}
-        </div>
-      )}
-    </div>
+            <Grid size={12}>
+              <Stack
+                direction="row"
+                alignItems="center"
+                justifyContent="space-between"
+                sx={{ mb: 0.5 }}
+              >
+                <Typography variant="body2" color="text.secondary">
+                  開始 {allDay ? "(日付のみ)" : "(日付と時刻)"}
+                </Typography>
+                <FormControlLabel
+                  control={<Checkbox checked={allDay} onChange={handleToggleAllDay} size="small" />}
+                  label="終日"
+                  sx={{ ml: 0 }}
+                />
+              </Stack>
+              {allDay ? (
+                <DatePicker
+                  value={startPickerValue}
+                  onChange={handleStartDateChange}
+                  format="YYYY-MM-DD"
+                  sx={{ width: { xs: "100%", sm: 240 } }}
+                  slotProps={pickerSlotProps}
+                />
+              ) : (
+                <Stack direction="row" spacing={1.25}>
+                  <DatePicker
+                    value={startPickerValue}
+                    onChange={handleStartDateChange}
+                    format="YYYY-MM-DD"
+                    slotProps={pickerSlotProps}
+                  />
+                  <TimePicker
+                    value={startTimeValue}
+                    onChange={handleStartTimeChange}
+                    minutesStep={5}
+                    slotProps={pickerSlotProps}
+                  />
+                </Stack>
+              )}
+            </Grid>
+
+            <Grid size={12}>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                終了 {allDay ? "(未入力なら翌日扱い)" : "(空なら開始+1時間)"}
+              </Typography>
+              {allDay ? (
+                <DatePicker
+                  value={endPickerValue}
+                  onChange={handleEndDateChange}
+                  format="YYYY-MM-DD"
+                  sx={{ width: { xs: "100%", sm: 240 } }}
+                  slotProps={pickerSlotProps}
+                />
+              ) : (
+                <Stack direction="row" spacing={1.25}>
+                  <DatePicker
+                    value={endPickerValue}
+                    onChange={handleEndDateChange}
+                    format="YYYY-MM-DD"
+                    slotProps={pickerSlotProps}
+                  />
+                  <TimePicker
+                    value={endTimeValue}
+                    onChange={handleEndTimeChange}
+                    minutesStep={5}
+                    slotProps={pickerSlotProps}
+                  />
+                </Stack>
+              )}
+            </Grid>
+          </Grid>
+        </Stack>
+      </Paper>
+    </LocalizationProvider>
   );
 }
