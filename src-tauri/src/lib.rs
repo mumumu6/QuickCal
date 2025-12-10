@@ -7,8 +7,6 @@ use std::env;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    // .envファイルを読み込み
-    dotenv().ok();
 
     tauri::Builder::default()
         // クリップボードプラグイン

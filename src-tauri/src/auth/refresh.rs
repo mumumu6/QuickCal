@@ -14,21 +14,16 @@ use super::keyring::{
 use super::TIMEOUT_SECS;
 
 const GOOGLE_TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
-
+const GOOGLE_CLIENT_ID: &str = "339820786895-air2q93cpm104tpmfvhbe2iunkjf4gb9.apps.googleusercontent.com";
+const GOOGLE_CLIENT_SECRET: &str = "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";
 /// リフレッシュトークンを使用してアクセストークンを更新
 pub async fn refresh_access_token() -> Result<String, Box<dyn Error + Send + Sync>> {
     // キーチェーンから認証情報を読み込み
     let stored_auth = load_auth_from_keychain()?.ok_or("保存された認証情報が見つかりません")?;
     let refresh_token = RefreshToken::new(stored_auth.refresh_token);
 
-    // 環境変数から認証情報を取得
-    let google_client_id = std::env::var("GOOGLE_CLIENT_ID")
-        .map_err(|_| "GOOGLE_CLIENT_ID environment variable is not set")?;
-    let google_client_secret = std::env::var("GOOGLE_CLIENT_SECRET")
-        .map_err(|_| "GOOGLE_CLIENT_SECRET environment variable is not set")?;
-
-    let client = BasicClient::new(ClientId::new(google_client_id))
-        .set_client_secret(ClientSecret::new(google_client_secret))
+    let client = BasicClient::new(ClientId::new(GOOGLE_CLIENT_ID.to_string()))
+        .set_client_secret(ClientSecret::new(GOOGLE_CLIENT_SECRET.to_string()))
         .set_token_uri(TokenUrl::new(GOOGLE_TOKEN_URL.to_string())?);
 
     // HTTPクライアントを作成

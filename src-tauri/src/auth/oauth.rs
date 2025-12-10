@@ -52,7 +52,8 @@ struct CallbackParams {
 const GOOGLE_AUTH_URL: &str = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL: &str = "https://oauth2.googleapis.com/token";
 const GOOGLE_SCOPE: &str = "https://www.googleapis.com/auth/calendar.events";
-
+const GOOGLE_CLIENT_ID: &str = "339820786895-air2q93cpm104tpmfvhbe2iunkjf4gb9.apps.googleusercontent.com";
+const GOOGLE_CLIENT_SECRET: &str = "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";
 
 /// Google OAuth認証を開始し、アクセストークンを取得
 pub async fn start_google_auth() -> Result<String, Box<dyn Error + Send + Sync>> {
@@ -71,19 +72,13 @@ pub async fn start_google_auth() -> Result<String, Box<dyn Error + Send + Sync>>
         *guard = None;
     });
 
-    // 環境変数から認証情報を取得
-    let google_client_id = std::env::var("GOOGLE_CLIENT_ID")
-        .map_err(|_| "GOOGLE_CLIENT_ID environment variable is not set")?;
-    let google_client_secret = std::env::var("GOOGLE_CLIENT_SECRET")
-        .map_err(|_| "GOOGLE_CLIENT_SECRET environment variable is not set")?;
-
     // 空きポートを動的に取得
     let listener = TcpListener::bind("127.0.0.1:0").await?;
     let port = listener.local_addr()?.port();
     let redirect_uri = format!("http://127.0.0.1:{}/callback", port);
 
-    let client = BasicClient::new(ClientId::new(google_client_id))
-        .set_client_secret(ClientSecret::new(google_client_secret))
+    let client = BasicClient::new(ClientId::new(GOOGLE_CLIENT_ID.to_string()))
+        .set_client_secret(ClientSecret::new(GOOGLE_CLIENT_SECRET.to_string()))
         .set_auth_uri(AuthUrl::new(GOOGLE_AUTH_URL.to_string())?)
         .set_token_uri(TokenUrl::new(GOOGLE_TOKEN_URL.to_string())?)
         .set_redirect_uri(RedirectUrl::new(redirect_uri)?);
