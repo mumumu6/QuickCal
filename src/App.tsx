@@ -6,14 +6,14 @@ import { Box, CircularProgress } from "@mui/material";
 import "./App.css";
 
 function App() {
-  const { accessToken, loading } = useAuthStore(
+  const { accessToken, initializing } = useAuthStore(
     useShallow((state) => ({
       accessToken: state.accessToken,
-      loading: state.loading,
+      initializing: state.initializing,
     }))
   );
 
-  if (loading) {
+  if (initializing) {
     return (
       <Box
         sx={{
