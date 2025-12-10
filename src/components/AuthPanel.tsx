@@ -1,56 +1,35 @@
 import AuthSection from "@/components/AuthSection";
+import { useAuthStore } from "@/store/authStore";
+import { Alert, Box, Stack, Typography } from "@mui/material";
 
-export type AuthPanelProps = {
-  initializing: boolean;
-  loading: boolean;
-  apiLoading: boolean;
-  accessToken: string | null;
-  error: string | null;
-  onAuth: () => void;
-  onCancel: () => void;
-};
+export default function AuthPanel() {
+  const error = useAuthStore((state) => state.error);
 
-export default function AuthPanel({
-  initializing,
-  loading,
-  apiLoading,
-  accessToken,
-  error,
-  onAuth,
-  onCancel,
-}: AuthPanelProps) {
   return (
-    <>
-      <h1 style={{ marginTop: 0, marginBottom: 12 }}>Google OAuth (PKCE)</h1>
-      <p style={{ marginTop: 0, marginBottom: 20, lineHeight: 1.5 }}>
-        ブラウザで Google 同意画面を開き、キーチェーンに保存されたトークンを使って Google Calendar
-        API を呼び出します。
-      </p>
-
-      <AuthSection
-        initializing={initializing}
-        loading={loading}
-        apiLoading={apiLoading}
-        accessToken={accessToken}
-        onAuth={onAuth}
-        onCancel={onCancel}
-      />
-
-      {error && (
-        <div
-          style={{
-            marginTop: 16,
-            padding: 12,
-            borderRadius: 8,
-            background: "#fdecea",
-            color: "#b71c1c",
-            fontSize: 14,
-            whiteSpace: "pre-wrap",
-          }}
+    <Box
+      sx={{
+        height: "100vh",
+        width: "100vw",
+        justifyContent: "center",
+        alignItems: "center",
+        display: "flex",
+      }}
+    >
+      <Stack spacing={3} sx={{width: "85%"}}>
+        <Typography
+          component="h1"
+          variant="h4"
+          align="center"
+          fontWeight={600}
+          sx={{ marginTop: 0 }}
         >
-          {error}
-        </div>
-      )}
-    </>
+          Google 認証
+        </Typography>
+
+        <AuthSection />
+
+        {error && <Alert severity="error">{error}</Alert>}
+      </Stack>
+    </Box>
   );
 }

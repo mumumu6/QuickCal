@@ -1,70 +1,77 @@
-import React from "react";
+import { useAuthStore } from "@/store/authStore";
+import { Box, Button, LinearProgress, Paper, Stack, Typography } from "@mui/material";
+import GoogleIcon from "@mui/icons-material/Google";
+import { useShallow } from "zustand/react/shallow";
 
-export type AuthSectionProps = {
-  initializing: boolean;
-  loading: boolean;
-  apiLoading: boolean;
-  accessToken: string | null;
-  onAuth: () => void;
-  onCancel: () => void;
-};
+const AuthSection = () => {
+  const { initializing, loading, accessToken, login, cancel } = useAuthStore(
+    useShallow((state) => ({
+      initializing: state.initializing,
+      loading: state.loading,
+      accessToken: state.accessToken,
+      login: state.login,
+      cancel: state.cancel,
+    }))
+  );
 
-const AuthSection = ({
-  initializing,
-  loading,
-  apiLoading,
-  accessToken,
-  onAuth,
-  onCancel,
-}: AuthSectionProps) => {
   return (
-    <>
-      {!accessToken && (
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button
-            onClick={onAuth}
-            disabled={loading || apiLoading}
-            style={{
-              padding: "12px 16px",
-              fontSize: 16,
-              background: "#1a73e8",
-              color: "#fff",
-              border: "none",
-              borderRadius: 8,
-              cursor: loading || apiLoading ? "not-allowed" : "pointer",
-              flex: 1,
-            }}
-          >
-            {loading ? "認証中..." : "Googleで認証"}
-          </button>
-          {loading && (
-            <button
-              onClick={onCancel}
-              style={{
-                padding: "12px 16px",
+    <Paper
+      elevation={6}
+      sx={{
+        borderRadius: 3,
+        p: 3,
+        pt: 4,
+        mx: 20,
+      }}
+    >
+      <Stack spacing={2} position="relative">
+        {!accessToken && (
+          <Stack spacing={2}>
+            <Button
+              onClick={login}
+              disabled={loading}
+              variant="contained"
+              startIcon={<GoogleIcon />}
+              disableElevation
+              sx={{
+                py: 1.35,
                 fontSize: 16,
-                background: "#dc3545",
-                color: "#fff",
-                border: "none",
-                borderRadius: 8,
-                cursor: "pointer",
-                minWidth: 80,
+                fontWeight: 700,
+                textTransform: "none",
+                mx: 0,
               }}
             >
-              やめる
-            </button>
-          )}
-        </div>
-      )}
+              {loading ? "認証中..." : "Googleで認証"}
+            </Button>
 
-      <div style={{ marginTop: 12, fontSize: 14, color: "#555" }}>
-        {initializing
-          ? "保存済みのアクセストークンを確認しています..."
-          : accessToken
-          ? "アクセストークンが利用できます"
-          : "アクセストークンがありません。認証してください。"}
-      </div>
-    </>
+            {loading && (
+              <Button
+                onClick={cancel}
+                variant="outlined"
+                color="error"
+                sx={{
+                  py: 1.35,
+                  fontSize: 15,
+                  fontWeight: 700,
+                }}
+              >
+                やめる
+              </Button>
+            )}
+          </Stack>
+        )}
+
+        {loading && <LinearProgress color="primary" sx={{ borderRadius: 999 }} />}
+
+        <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center" }}>
+          {initializing
+            ? "認証情報を確認しています..."
+            : loading
+            ? "認証中..."
+            : "認証してください。"}
+        </Typography>
+      </Stack>
+    </Paper>
   );
 };
 
