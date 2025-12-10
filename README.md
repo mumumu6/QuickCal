@@ -1,7 +1,15 @@
-# Tauri + React + Typescript
+# QuickCal
 
-This template should help get you started developing with Tauri, React and Typescript in Vite.
+クリップボードの予定っぽいテキストを読んで、Google カレンダーにポンと登録するデスクトップ用ミニツール。Tauri + React で動いてます。
 
-## Recommended IDE Setup
+## できること
 
-- [VS Code](https://code.visualstudio.com/) + [Tauri](https://marketplace.visualstudio.com/items?itemName=tauri-apps.tauri-vscode) + [rust-analyzer](https://marketplace.visualstudio.com/items?itemName=rust-lang.rust-analyzer)
+- Google 認証してプライマリカレンダーに直接イベント登録
+- クリップボードのテキストから日付・時間・終日を推測（例: `12/1 10:00-11:00`, `明日 9:30` など）。
+- 起動時＋ショートカットイベントでクリップボードを自動読み込み、拾えたところをハイライトしてフォームに反映
+- 終日/時間指定をワンタップ切替、終了が空なら開始+1 時間（終日は翌日扱い）で補完
+- 登録ボタンを押すだけ。成功/エラーは画面内のメッセージでお知らせ
+- alt + c でアプリを起動してクリップボードを読み込む
+## どんな感じか
+
+開いたらまず Google でサクッと認証。あとはメモ帳や Slack でコピーした「」みたいなテキストをそのまま読ませるとフォームが自動で埋まるので、気になるところだけ直して「この内容で登録する」を押すだけ。外部ブラウザに行かず、軽い UI で完結します。
