@@ -2,7 +2,6 @@ import { invoke } from "@tauri-apps/api/core";
 import { create } from "zustand";
 
 type AuthState = {
-  initializing: boolean;
   loading: boolean;
   accessToken: string | null;
   error: string | null;
@@ -12,19 +11,18 @@ type AuthState = {
 };
 
 export const useAuthStore = create<AuthState>((set) => ({
-  initializing: true,
   loading: false,
   accessToken: null,
   error: null,
   checkSaved: async () => {
-    set({ initializing: true, error: null });
+    set({ loading: true, error: null });
     try {
       const token = await invoke<string | null>("check_saved_auth");
       set({ accessToken: token });
     } catch (e) {
       set({ error: e instanceof Error ? e.message : String(e) });
     } finally {
-      set({ initializing: false });
+      set({ loading: false });
     }
   },
   login: async () => {

@@ -15,7 +15,7 @@ export default function AuthPanel() {
         display: "flex",
       }}
     >
-      <Stack spacing={3} sx={{width: "85%"}}>
+      <Stack spacing={3} sx={{ width: "85%" }}>
         <Typography
           component="h1"
           variant="h4"

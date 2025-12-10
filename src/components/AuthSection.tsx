@@ -1,12 +1,11 @@
 import { useAuthStore } from "@/store/authStore";
-import { Box, Button, LinearProgress, Paper, Stack, Typography } from "@mui/material";
+import { Button, LinearProgress, Paper, Stack, Typography } from "@mui/material";
 import GoogleIcon from "@mui/icons-material/Google";
 import { useShallow } from "zustand/react/shallow";
 
 const AuthSection = () => {
-  const { initializing, loading, accessToken, login, cancel } = useAuthStore(
+  const { loading, accessToken, login, cancel } = useAuthStore(
     useShallow((state) => ({
-      initializing: state.initializing,
       loading: state.loading,
       accessToken: state.accessToken,
       login: state.login,
@@ -64,11 +63,7 @@ const AuthSection = () => {
         {loading && <LinearProgress color="primary" sx={{ borderRadius: 999 }} />}
 
         <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center" }}>
-          {initializing
-            ? "認証情報を確認しています..."
-            : loading
-            ? "認証中..."
-            : "認証してください。"}
+          {loading ? "認証中..." : "認証してください。"}
         </Typography>
       </Stack>
     </Paper>
