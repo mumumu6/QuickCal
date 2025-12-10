@@ -13,7 +13,6 @@ import {
 } from "@/utils/dateParse";
 import { readClipboardSchedule } from "@/utils/clipboard";
 import {
-  Alert,
   Box,
   Button,
   Card,
@@ -123,8 +122,6 @@ export default function EventRegisterPanel() {
   const [startText, setStartText] = useState(formatDateTimeLocal(initialStart));
   const [endText, setEndText] = useState(formatDateTimeLocal(addHours(initialStart, 1)));
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
   const [clipboardRaw, setClipboardRaw] = useState<string | null>(null);
   const [clipboardParsed, setClipboardParsed] = useState<ParsedClipboard | null>(null);
 
@@ -330,23 +327,12 @@ export default function EventRegisterPanel() {
   );
 
   const handleClipboardImport = useCallback(async () => {
-    setMessage(null);
-    const { parsed, error: readError, raw } = await readClipboardSchedule();
+    const { parsed, raw } = await readClipboardSchedule();
     setClipboardRaw(raw ?? null);
     setClipboardParsed(parsed ?? null);
 
-    if (readError) {
-      setError(readError);
-      return;
-    }
-    if (!parsed) {
-      setError("クリップボードから日時を読み取れませんでした。");
-      return;
-    }
-
+    if (!parsed) return;
     applyParsedClipboard(parsed);
-    setError(null);
-    setMessage("クリップボードの内容を反映しました。");
   }, [applyParsedClipboard]);
 
   useEffect(() => {
@@ -361,11 +347,8 @@ export default function EventRegisterPanel() {
 
   const registerEvent = useCallback(async () => {
     setLoading(true);
-    setError(null);
-    setMessage(null);
 
     if (!accessToken) {
-      setError("アクセストークンがありません。再度認証してください。");
       setLoading(false);
       return;
     }
@@ -386,10 +369,8 @@ export default function EventRegisterPanel() {
         const text = await res.text();
         throw new Error(`登録に失敗しました (${res.status}): ${text}`);
       }
-
-      setMessage("カレンダーに登録しました。");
     } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
+      console.error("Failed to register event:", e);
     } finally {
       setLoading(false);
     }
