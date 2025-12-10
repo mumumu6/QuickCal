@@ -4,3 +4,18 @@ body {
   padding: 0;
   overscroll-behavior: none;
 }
+
+.scrollable-content {
+  scrollbar-width: thin;
+}
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #dbd9e2;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb {
+  background-color: #76708d;
+  border-radius: 4px;
+}
