@@ -378,24 +378,15 @@ export default function EventRegisterPanel() {
 
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
-      <Paper
-        elevation={0}
+      <Box
         sx={{
-          p: { xs: 2, sm: 3 },
-          borderRadius: 3,
-          background: "linear-gradient(135deg, #f6f8ff 0%, #eef2ff 100%)",
-          border: "1px solid",
-          borderColor: "grey.200",
-          boxShadow: "0 12px 30px rgba(0,0,0,0.08)",
+          p: 3,
+          background: "#f6f8ff",
+          height: "100%",
         }}
       >
-        <Stack spacing={2.5}>
-          <Stack
-            direction={{ xs: "column", sm: "row" }}
-            alignItems={{ xs: "flex-start", sm: "center" }}
-            justifyContent="space-between"
-            spacing={1.5}
-          >
+        <Stack spacing={3}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between" mb={2}>
             <Box>
               <Typography variant="h6" component="h2" sx={{ fontWeight: 700 }}>
                 カレンダー登録
@@ -448,7 +439,7 @@ export default function EventRegisterPanel() {
                     lineHeight: 1.4,
                     whiteSpace: "pre-wrap",
                     wordBreak: "break-word",
-                    maxHeight: "2.5lh",
+                    maxHeight: "4lh",
                     overflowY: "auto",
                   }}
                 >
@@ -491,7 +482,7 @@ export default function EventRegisterPanel() {
                   value={startPickerValue}
                   onChange={handleStartDateChange}
                   format="YYYY-MM-DD"
-                  sx={{ width: { xs: "100%", sm: 240 } }}
+                  sx={{ width: "100%" }}
                   slotProps={pickerSlotProps}
                 />
               ) : (
@@ -521,7 +512,7 @@ export default function EventRegisterPanel() {
                   value={endPickerValue}
                   onChange={handleEndDateChange}
                   format="YYYY-MM-DD"
-                  sx={{ width: { xs: "100%", sm: 240 } }}
+                  sx={{ width: "100%" }}
                   slotProps={pickerSlotProps}
                 />
               ) : (
@@ -543,7 +534,7 @@ export default function EventRegisterPanel() {
             </Grid>
           </Grid>
         </Stack>
-      </Paper>
+      </Box>
     </LocalizationProvider>
   );
 }

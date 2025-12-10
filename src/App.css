@@ -9,7 +9,7 @@ body {
   scrollbar-width: thin;
 }
 ::-webkit-scrollbar {
-  width: 6px;
+  width: 4px;
 }
 ::-webkit-scrollbar-track {
   background: #dbd9e2;
