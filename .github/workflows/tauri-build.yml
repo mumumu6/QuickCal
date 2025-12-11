@@ -41,6 +41,8 @@ jobs:
 
       - name: Cache Rust
         uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
 
       - name: Build Tauri app
         run: npm run tauri build
