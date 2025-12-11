@@ -1,0 +1,16 @@
+# ビルド出力
+out
+build
+dist
+src-tauri/target
+
+# 依存関係
+node_modules
+
+# ロックファイル
+package-lock.json
+
+# その他
+.git
+.vscode
+*.log 

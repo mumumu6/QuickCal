@@ -20,8 +20,8 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: "24"  
-          cache: "npm"
+          node-version: '24'
+          cache: 'npm'
 
       - name: Cache npm
         uses: actions/cache@v4
@@ -31,20 +31,16 @@ jobs:
         with:
           path: node_modules
           key: node-modules${{ hashFiles('**/package-lock.json') }}
-          
-          
+
       - name: Install dependencies
         if: ${{ steps.node_cache_dependency.outputs.cache-hit != 'true' }}
         run: npm ci
 
-
-
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
-      
+
       - name: Cache Rust
         uses: Swatinem/rust-cache@v2
-        
 
       - name: Build Tauri app
         run: npm run tauri build

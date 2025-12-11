@@ -1,17 +1,17 @@
-import { readText } from "@tauri-apps/plugin-clipboard-manager";
-import { ParsedClipboard, parseClipboardContent } from "@/utils/dateParse";
+import { readText } from '@tauri-apps/plugin-clipboard-manager'
+import { ParsedClipboard, parseClipboardContent } from '@/utils/dateParse'
 
 export type ClipboardParseResult = {
-  raw: string | null;
-  parsed: ParsedClipboard | null;
-  error: string | null;
-};
+  raw: string | null
+  parsed: ParsedClipboard | null
+  error: string | null
+}
 
 const buildErrorResult = (raw: string | null, error: string): ClipboardParseResult => ({
   raw,
   parsed: null,
   error,
-});
+})
 
 /**
  * クリップボードからテキストを取得し、日時情報をパースして返す。
@@ -19,20 +19,20 @@ const buildErrorResult = (raw: string | null, error: string): ClipboardParseResu
  */
 export const readClipboardSchedule = async (): Promise<ClipboardParseResult> => {
   try {
-    const raw = await readText();
-    const hasText = Boolean(raw && raw.trim());
+    const raw = await readText()
+    const hasText = Boolean(raw && raw.trim())
 
     if (!hasText) {
-      return buildErrorResult(raw ?? null, "クリップボードにテキストがありませんでした。");
+      return buildErrorResult(raw ?? null, 'クリップボードにテキストがありませんでした。')
     }
 
-    const parsed = parseClipboardContent(raw);
+    const parsed = parseClipboardContent(raw)
     if (!parsed) {
-      return buildErrorResult(raw, "クリップボードから日時を読み取れませんでした。");
+      return buildErrorResult(raw, 'クリップボードから日時を読み取れませんでした。')
     }
 
-    return { raw, parsed, error: null };
+    return { raw, parsed, error: null }
   } catch (e) {
-    return buildErrorResult(null, e instanceof Error ? e.message : String(e));
+    return buildErrorResult(null, e instanceof Error ? e.message : String(e))
   }
-};
+}

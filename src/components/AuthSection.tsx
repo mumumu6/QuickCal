@@ -1,7 +1,7 @@
-import { useAuthStore } from "@/store/authStore";
-import { Button, LinearProgress, Paper, Stack, Typography } from "@mui/material";
-import GoogleIcon from "@mui/icons-material/Google";
-import { useShallow } from "zustand/react/shallow";
+import { useAuthStore } from '@/store/authStore'
+import { Button, LinearProgress, Paper, Stack, Typography } from '@mui/material'
+import GoogleIcon from '@mui/icons-material/Google'
+import { useShallow } from 'zustand/react/shallow'
 
 const AuthSection = () => {
   const { loading, accessToken, login, cancel } = useAuthStore(
@@ -11,7 +11,7 @@ const AuthSection = () => {
       login: state.login,
       cancel: state.cancel,
     }))
-  );
+  )
 
   return (
     <Paper
@@ -36,11 +36,11 @@ const AuthSection = () => {
                 py: 1.35,
                 fontSize: 16,
                 fontWeight: 700,
-                textTransform: "none",
+                textTransform: 'none',
                 mx: 0,
               }}
             >
-              {loading ? "認証中..." : "Googleで認証"}
+              {loading ? '認証中...' : 'Googleで認証'}
             </Button>
 
             {loading && (
@@ -62,12 +62,12 @@ const AuthSection = () => {
 
         {loading && <LinearProgress color="primary" sx={{ borderRadius: 999 }} />}
 
-        <Typography variant="body2" color="text.secondary" sx={{ textAlign: "center" }}>
-          {loading ? "認証中..." : "認証してください。"}
+        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>
+          {loading ? '認証中...' : '認証してください。'}
         </Typography>
       </Stack>
     </Paper>
-  );
-};
+  )
+}
 
-export default AuthSection;
+export default AuthSection
