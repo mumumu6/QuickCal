@@ -1,9 +1,7 @@
 mod auth;
 mod logger;
 mod shortcut;
-use dotenvy::dotenv;
 use log::error;
-use std::env;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
